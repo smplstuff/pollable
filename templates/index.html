@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pollable</title>
+  <meta name="description" content="Ask every model the same question. Compare answers across labs." />
+  <meta name="theme-color" content="#1a1a1a" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="pollable" />
+  <meta property="og:title" content="pollable" />
+  <meta property="og:description" content="Ask every model the same question. Compare answers across labs." />
+  <meta property="og:url" content="/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="pollable" />
+  <meta name="twitter:description" content="Ask every model the same question. Compare answers across labs." />
+<script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            background: 'oklch(0.2 0 0)',
+            foreground: 'oklch(0.96 0.004 260)',
+            card: 'oklch(0.235 0 0)',
+            primary: 'oklch(0.97 0.004 260)',
+            'primary-foreground': 'oklch(0.16 0.006 260)',
+            muted: 'oklch(0.22 0 0)',
+            'muted-foreground': 'oklch(0.66 0 0)',
+            accent: 'oklch(0.27 0 0)',
+            highlight: 'oklch(0.72 0.13 235)',
+            border: 'oklch(1 0 0 / 9%)',
+            input: 'oklch(1 0 0 / 14%)',
+          },
+          fontFamily: { sans: ['Urbanist', 'system-ui', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script defer src="https://cdn.jsdelivr.net/npm/@pollinations/ui@0.1.0-alpha.20/dist/connect.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    body { font-family: 'Urbanist', system-ui, sans-serif; }
+    textarea:focus { outline: none; }
+    .answer-card { animation: fadeUp 0.3s ease both; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    polli-connect { display: inline-flex; align-items: center; }
+  
+    .md-body { word-break: break-word; }
+    .md-body p { margin: 0.5em 0; }
+    .md-body p:first-child { margin-top: 0; }
+    .md-body p:last-child { margin-bottom: 0; }
+    .md-body ul, .md-body ol { margin: 0.5em 0; padding-left: 1.25rem; }
+    .md-body li { margin: 0.2em 0; }
+    .md-body strong { font-weight: 600; color: oklch(0.98 0.004 260); }
+    .md-body a { color: oklch(0.72 0.13 235); text-decoration: underline; text-underline-offset: 2px; }
+    .md-body code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85em;
+      background: oklch(1 0 0 / 8%);
+      border-radius: 0.3rem;
+      padding: 0.1em 0.35em;
+    }
+    .md-body pre {
+      margin: 0.6em 0;
+      padding: 0.75rem 1rem;
+      border-radius: 0.6rem;
+      background: oklch(0.18 0 0);
+      border: 1px solid oklch(1 0 0 / 9%);
+      overflow-x: auto;
+    }
+    .md-body pre code {
+      background: transparent;
+      padding: 0;
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+    .md-body blockquote {
+      margin: 0.6em 0;
+      padding-left: 0.85rem;
+      border-left: 2px solid oklch(0.72 0.13 235 / 50%);
+      color: oklch(0.75 0 0);
+    }
+    .md-body h1, .md-body h2, .md-body h3, .md-body h4 {
+      font-weight: 600;
+      margin: 0.75em 0 0.35em;
+      line-height: 1.3;
+    }
+    .md-body h1 { font-size: 1.15rem; }
+    .md-body h2 { font-size: 1.05rem; }
+    .md-body h3 { font-size: 1rem; }
+    .md-body hr { border: none; border-top: 1px solid oklch(1 0 0 / 9%); margin: 0.75em 0; }
+    .md-body table { border-collapse: collapse; margin: 0.6em 0; width: 100%; font-size: 0.875rem; }
+    .md-body th, .md-body td { border: 1px solid oklch(1 0 0 / 9%); padding: 0.35rem 0.5rem; text-align: left; }
+    .md-body th { background: oklch(1 0 0 / 5%); }
+  </style>
+</head>
+<body class="min-h-screen bg-background text-foreground antialiased">
+  <header class="sticky top-0 z-20 bg-background/80 backdrop-blur">
+    <div class="mx-auto flex max-w-3xl items-center px-6 py-3">
+      <a href="/" class="flex items-center gap-2 text-xl font-semibold tracking-tight">
+        <span class="h-2.5 w-2.5 rounded-full bg-highlight"></span>
+        pollable
+      </a>
+      <nav class="ml-8 hidden sm:flex gap-5 text-sm text-muted-foreground">
+        <a href="/" class="text-foreground font-medium">Ask</a>
+        <a href="/questions" class="hover:text-foreground transition-colors">Questions</a>
+      </nav>
+      <div class="ml-auto">
+        <polli-connect
+          id="polli"
+          app-key="pk_gIFdnHJBAck4eu4n"
+          budget="5"
+          expiry="7"
+          models="text"
+          permissions="profile,usage"
+        ></polli-connect>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-3xl px-6 pt-14 pb-24">
+    <div class="text-center">
+      <h1 class="text-3xl md:text-4xl font-semibold tracking-tight">Ask every model the same question</h1>
+      <p class="mt-3 text-muted-foreground max-w-md mx-auto">
+        One prompt. Many models. Compare answers across labs.
+      </p>
+    </div>
+
+    <div class="mt-10 relative rounded-xl border border-border bg-card">
+      <div class="px-5 pt-5 pb-14">
+        <textarea
+          id="question"
+          rows="3"
+          class="w-full resize-none bg-transparent text-[15px] leading-relaxed placeholder:text-muted-foreground/60"
+          placeholder="What question do you want every model to answer?"
+        ></textarea>
+      </div>
+      <button id="ask-btn" class="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-85 transition-opacity disabled:opacity-40">
+        Ask all
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="mt-6">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-sm text-muted-foreground">Models</p>
+        <div class="flex gap-2 text-xs text-muted-foreground">
+          <button id="select-all" class="hover:text-foreground transition-colors">Select all</button>
+          <span class="opacity-30">·</span>
+          <button id="clear-all" class="hover:text-foreground transition-colors">Clear</button>
+        </div>
+      </div>
+      <div id="model-list" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <section id="results" class="mt-14 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">Answers</h2>
+        <p class="text-xs text-muted-foreground" id="results-meta"></p>
+      </div>
+      <div id="answers" class="space-y-3"></div>
+      <p id="view-thread" class="mt-4 text-center hidden">
+        <a href="#" id="thread-link" class="inline-flex items-center gap-1 text-sm text-highlight hover:underline">
+          View full thread
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+      </p>
+    </section>
+
+    <section class="mt-16">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <p class="text-sm font-medium">Previous questions asked by people</p>
+          <p class="text-xs text-muted-foreground mt-0.5">See how different models answered the same prompt</p>
+        </div>
+        <a href="/questions" class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Browse all
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </a>
+      </div>
+      <div id="prev-list" class="space-y-2"></div>
+      <p id="prev-empty" class="text-center text-sm text-muted-foreground py-8">Loading…</p>
+    </section>
+  </main>
+
+  <script>
+    let MODELS = [];
+
+    function iconFor(id, fallback) {
+      if (fallback) return fallback;
+      const s = (id || '').toLowerCase();
+      if (s.startsWith('openai/')) return 'openai';
+      if (s.startsWith('anthropic/')) return 'claude-color';
+      if (s.startsWith('google/gemini') || s.includes('gemini')) return 'gemini-color';
+      if (s.startsWith('google/gemma') || s.includes('gemma')) return 'gemini-color';
+      if (s.startsWith('deepseek/')) return 'deepseek-color';
+      if (s.startsWith('x-ai/') || s.includes('grok')) return 'grok';
+      if (s.startsWith('moonshotai/') || s.includes('kimi')) return 'kimi';
+      if (s.startsWith('qwen/')) return 'qwen-color';
+      if (s.startsWith('mistralai/')) return 'mistral-color';
+      if (s.startsWith('meta/')) return 'meta-color';
+      if (s.startsWith('minimax/')) return 'minimax-color';
+      if (s.startsWith('z-ai/') || s.includes('glm')) return 'zhipu-color';
+      return 'openai';
+    }
+
+    let modelsExpanded = false;
+    const COLLAPSED_COUNT = 10;
+
+    async function loadModels() {
+      const res = await fetch('/models.json');
+      if (!res.ok) throw new Error('Failed to load models.json');
+      const data = await res.json();
+      MODELS = (Array.isArray(data) ? data : data.models || []).map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+        icon: iconFor(m.id, m.icon),
+        selected: Boolean(m.selected),
+        paid: Boolean(m.paid),
+      }));
+      renderPills();
+    }
+
+    const API = 'https://gen.pollinations.ai/v1/chat/completions';
+
+    function renderMarkdown(text) {
+      if (typeof marked === 'undefined') {
+        const d = document.createElement('div');
+        d.className = 'md-body text-sm leading-relaxed text-foreground/90';
+        d.style.whiteSpace = 'pre-wrap';
+        d.textContent = text || '';
+        return d.outerHTML;
+      }
+      marked.setOptions({ breaks: true, gfm: true });
+      const html = marked.parse(text || '');
+      return `<div class="md-body text-sm leading-relaxed text-foreground/90">${html}</div>`;
+    }
+
+
+    let userApiKey = null;
+    document.getElementById('polli')?.addEventListener('change', (e) => {
+      userApiKey = e.target.apiKey || null;
+    });
+
+    const params = new URLSearchParams(location.search);
+    if (params.get('q')) document.getElementById('question').value = params.get('q');
+
+    // Model pills
+    const listEl = document.getElementById('model-list');
+    function renderPills() {
+      const visible = modelsExpanded ? MODELS : MODELS.slice(0, COLLAPSED_COUNT);
+      const hiddenCount = Math.max(0, MODELS.length - COLLAPSED_COUNT);
+      listEl.innerHTML = visible.map(m => {
+        let cls;
+        if (m.paid) {
+          // muted amber; selection is the clear signal
+          cls = m.selected
+            ? 'model-pill inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-200/95 shadow-[0_0_0_1px_rgba(245,158,11,0.12)] transition-all duration-200 hover:bg-amber-500/20'
+            : 'model-pill inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/[0.06] px-3 py-1.5 text-xs font-medium text-amber-200/55 transition-all duration-200 hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-200/80';
+        } else {
+          cls = m.selected
+            ? 'model-pill selected inline-flex items-center gap-1.5 rounded-full border border-border bg-accent px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent'
+            : 'model-pill inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground';
+        }
+        return `<button data-id="${m.id}" class="${cls}">
+          <img src="https://unpkg.com/@lobehub/icons-static-png@latest/dark/${m.icon}.png" alt="" class="h-3.5 w-3.5 object-contain ${m.selected ? '' : 'opacity-60'}" onerror="this.src='https://unpkg.com/@lobehub/icons-static-png@latest/dark/${m.icon.replace('-color','')}.png';this.onerror=null" />
+          ${m.name}
+        </button>`;
+      }).join('') + (hiddenCount > 0 ? `
+        <button type="button" id="toggle-models" class="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+          ${modelsExpanded
+            ? `Show less <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>`
+            : `+${hiddenCount} more <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`}
+        </button>` : '');
+
+      listEl.querySelectorAll('.model-pill').forEach(btn => {
+        btn.onclick = () => {
+          const m = MODELS.find(x => x.id === btn.dataset.id);
+          m.selected = !m.selected;
+          renderPills();
+        };
+      });
+      const toggle = document.getElementById('toggle-models');
+      if (toggle) {
+        toggle.onclick = () => {
+          modelsExpanded = !modelsExpanded;
+          renderPills();
+        };
+      }
+    }
+    document.getElementById('select-all').onclick = () => { MODELS.forEach(m => m.selected = true); renderPills(); };
+    document.getElementById('clear-all').onclick = () => { MODELS.forEach(m => m.selected = false); renderPills(); };
+    loadModels().catch(err => {
+      console.error(err);
+      document.getElementById('model-list').innerHTML =
+        '<p class="text-sm text-red-400">Could not load models.json</p>';
+    });
+
+    // Backend history
+    async function loadPrevious() {
+      const list = document.getElementById('prev-list');
+      const empty = document.getElementById('prev-empty');
+      empty.classList.remove('hidden');
+      empty.textContent = 'Loading…';
+      try {
+        const res = await fetch('/api/questions');
+        const data = await res.json();
+        const items = (data.questions || []).slice(0, 6);
+        if (!items.length) {
+          list.innerHTML = '';
+          empty.textContent = 'No questions yet. Be the first to ask.';
+          return;
+        }
+        empty.classList.add('hidden');
+        list.innerHTML = items.map(item => {
+          const preview = item.preview || [];
+          const icons = preview.slice(0, 5).map(a =>
+            `<img src="https://unpkg.com/@lobehub/icons-static-png@latest/dark/${a.icon || 'openai'}.png" class="h-4 w-4 object-contain rounded-full ring-2 ring-card bg-card" alt="" onerror="this.style.display='none'" />`
+          ).join('');
+          const extra = (item.answerCount || 0) > 5 ? `<span class="relative z-10 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px] ring-2 ring-card">+${item.answerCount - 5}</span>` : '';
+          return `
+            <a href="/q?id=${encodeURIComponent(item.id)}" class="group block w-full text-left rounded-xl border border-border bg-card px-4 py-3.5 hover:bg-accent transition-colors">
+              <div class="text-sm font-medium leading-snug line-clamp-2 group-hover:underline group-hover:underline-offset-2">${item.question}</div>
+              <div class="mt-2.5 flex items-center gap-2 text-xs text-muted-foreground">
+                <span class="inline-flex items-center -space-x-1.5">${icons}${extra}</span>
+                <span class="opacity-40">·</span>
+                <span>${item.answerCount || 0} answers</span>
+                <span class="opacity-40">·</span>
+                <span>${item.at ? new Date(item.at).toLocaleDateString() : ''}</span>
+              </div>
+            </a>`;
+        }).join('');
+      } catch {
+        empty.textContent = 'Could not load questions.';
+      }
+    }
+    loadPrevious();
+
+    async function callModel(model, question, apiKey) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: model.id,
+            messages: [{ role: 'user', content: question }],
+            temperature: 0.7,
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          if (!apiKey || res.status === 401 || res.status === 402) {
+            const simple = await fetch(`https://text.pollinations.ai/${encodeURIComponent(question)}?model=${encodeURIComponent(model.id)}`);
+            if (simple.ok) return { model: model.id, name: model.name, icon: model.icon, ok: true, text: (await simple.text()).trim() };
+          }
+          return { model: model.id, name: model.name, icon: model.icon, ok: false, text: `Error ${res.status}: ${errText.slice(0, 160)}` };
+        }
+        const data = await res.json();
+        const text = (data?.choices?.[0]?.message?.content || '').trim();
+        const usage = data?.usage || {};
+        const total = Number(usage.total_tokens ?? ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0)));
+        const zeroUsage = usage && (usage.total_tokens === 0 || (usage.prompt_tokens === 0 && usage.completion_tokens === 0 && usage.total_tokens !== undefined));
+        if (!text || zeroUsage) {
+          return {
+            model: model.id,
+            name: model.name,
+            icon: model.icon,
+            ok: false,
+            text: '',
+            failed: true,
+            reason: zeroUsage ? 'zero tokens' : 'empty response',
+          };
+        }
+        return { model: model.id, name: model.name, icon: model.icon, ok: true, text };
+      } catch (e) {
+        return { model: model.id, name: model.name, icon: model.icon, ok: false, text: String(e.message || e) };
+      }
+    }
+
+    async function saveToBackend(question, models, answers) {
+      const res = await fetch('/api/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, models, answers }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      const data = await res.json();
+      return data.id;
+    }
+
+    const askBtn = document.getElementById('ask-btn');
+    const results = document.getElementById('results');
+    const answersEl = document.getElementById('answers');
+    const meta = document.getElementById('results-meta');
+
+    
+    document.getElementById('question').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        askBtn.click();
+      }
+    });
+
+    askBtn.addEventListener('click', async () => {
+      const question = document.getElementById('question').value.trim();
+      const selected = MODELS.filter(m => m.selected);
+      if (!question || !selected.length) return;
+
+      askBtn.disabled = true;
+      askBtn.textContent = 'Asking…';
+      results.classList.remove('hidden');
+      document.getElementById('view-thread').classList.add('hidden');
+      answersEl.innerHTML = '';
+      meta.textContent = `Asking ${selected.length} models…`;
+
+      selected.forEach(m => {
+        const card = document.createElement('div');
+        card.id = 'ans-' + m.id.replace(/[^a-z0-9]/gi, '_');
+        card.className = 'rounded-xl border border-border bg-card p-4 opacity-60';
+        card.innerHTML = `
+          <div class="flex items-center gap-2 mb-2">
+            <img src="https://unpkg.com/@lobehub/icons-static-png@latest/dark/${m.icon}.png" class="h-5 w-5 object-contain" onerror="this.style.display='none'" />
+            <div class="min-w-0">
+              <div class="text-sm font-medium">${m.name}</div>
+              <div class="text-[10px] font-mono text-muted-foreground">${m.id}</div>
+            </div>
+            <span class="ml-auto text-xs text-muted-foreground shrink-0">thinking…</span>
+          </div>
+          <div class="h-3.5 w-3/5 rounded bg-muted animate-pulse"></div>`;
+        answersEl.appendChild(card);
+      });
+
+      const promises = selected.map(async (m, i) => {
+        const result = await callModel(m, question, userApiKey);
+        const card = document.getElementById('ans-' + m.id.replace(/[^a-z0-9]/gi, '_'));
+        if (card) {
+          card.className = 'answer-card rounded-xl border border-border bg-card p-4';
+          card.style.animationDelay = `${i * 0.04}s`;
+          const failed = !result.ok || result.failed;
+          card.innerHTML = `
+            <div class="flex items-center gap-2 ${failed && !result.text ? '' : 'mb-2.5'}">
+              <img src="https://unpkg.com/@lobehub/icons-static-png@latest/dark/${m.icon}.png" class="h-5 w-5 object-contain" onerror="this.style.display='none'" />
+              <div class="min-w-0">
+                <div class="text-sm font-medium">${m.name}</div>
+                <div class="text-[10px] font-mono text-muted-foreground">${m.id}</div>
+              </div>
+              ${failed ? `<span class="ml-auto inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-400 shrink-0">
+                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                failed
+              </span>` : ''}
+            </div>
+            ${failed && !result.text ? '' : renderMarkdown(result.text)}`;
+        }
+        meta.textContent = `${document.querySelectorAll('.answer-card').length} of ${selected.length} answered`;
+        return result;
+      });
+
+      const answers = await Promise.all(promises);
+      meta.textContent = `${answers.filter(a => a.ok).length} of ${answers.length} answered`;
+
+      try {
+        const id = await saveToBackend(question, selected.map(m => m.id), answers);
+        const thread = document.getElementById('view-thread');
+        const link = document.getElementById('thread-link');
+        link.href = '/q?id=' + encodeURIComponent(id);
+        thread.classList.remove('hidden');
+        loadPrevious();
+      } catch {
+        meta.textContent += ' · save failed';
+      }
+
+      askBtn.disabled = false;
+      askBtn.innerHTML = `Ask all <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+    });
+
+    // Animated placeholders: wait 3s, delete, type next examples
+    (function () {
+      const el = document.getElementById('question');
+      if (!el) return;
+      const prompts = [
+        'What question do you want every model to answer?',
+        'What is the most controversial truth about humans that AI models usually avoid saying?',
+        'Should I walk or drive to a car wash that is only 50 meters away?',
+        'Which AI lab has the highest ethical standards?',
+        'What is the single best programming language for the future of software?',
+        'If every AI model answered at once, what would they still disagree on?',
+      ];
+      let idx = 0;
+      let chars = prompts[0];
+      let i = chars.length;
+      let phase = 'wait';
+      let waitUntil = Date.now() + 3000;
+      const typeSpeed = 28;
+      const deleteSpeed = 16;
+      const holdMs = 2600;
+
+      function tick() {
+        if (document.activeElement === el || el.value.trim().length > 0) {
+          setTimeout(tick, 400);
+          return;
+        }
+        const now = Date.now();
+        if (phase === 'wait') {
+          if (now >= waitUntil) phase = 'delete';
+        } else if (phase === 'delete') {
+          if (i > 0) {
+            i -= 1;
+            el.placeholder = chars.slice(0, i);
+          } else {
+            idx = (idx + 1) % prompts.length;
+            chars = prompts[idx];
+            phase = 'type';
+          }
+        } else if (phase === 'type') {
+          if (i < chars.length) {
+            i += 1;
+            el.placeholder = chars.slice(0, i);
+          } else {
+            phase = 'wait';
+            waitUntil = now + holdMs;
+          }
+        }
+        const delay =
+          phase === 'delete' ? deleteSpeed :
+          phase === 'type' ? typeSpeed :
+          Math.min(200, Math.max(50, waitUntil - now));
+        setTimeout(tick, delay);
+      }
+
+      el.placeholder = prompts[0];
+      setTimeout(tick, 200);
+    })();
+  </script>
+</body>
+</html>
