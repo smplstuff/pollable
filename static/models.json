@@ -44,7 +44,7 @@
   {
     "name": "GPT-6 Luna",
     "id": "openai/gpt-6-luna",
-    "selected": false,
+    "selected": true,
     "paid": false
   },
   {
@@ -56,7 +56,7 @@
   {
     "name": "Claude Sonnet 5.5",
     "id": "anthropic/claude-sonnet-5.5",
-    "selected": true,
+    "selected": false,
     "paid": true
   },
   {
@@ -80,7 +80,7 @@
   {
     "name": "Gemini 3.8 Flash",
     "id": "google/gemini-3.8-flash",
-    "selected": true,
+    "selected": false,
     "paid": true
   },
   {
@@ -116,7 +116,7 @@
   {
     "name": "DeepSeek V4 Flash",
     "id": "deepseek/deepseek-v4-flash",
-    "selected": false,
+    "selected": true,
     "paid": false
   },
   {
