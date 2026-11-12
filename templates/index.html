@@ -99,6 +99,10 @@
     .md-body table { border-collapse: collapse; margin: 0.6em 0; width: 100%; font-size: 0.875rem; }
     .md-body th, .md-body td { border: 1px solid oklch(1 0 0 / 9%); padding: 0.35rem 0.5rem; text-align: left; }
     .md-body th { background: oklch(1 0 0 / 5%); }
+  
+    #ask-wrap.needs-connect #ask-tip { display: none; }
+    #ask-wrap.needs-connect:hover #ask-tip { display: block; }
+    #ask-wrap:not(.needs-connect) #ask-tip { display: none !important; }
   </style>
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
@@ -142,12 +146,17 @@
           placeholder="What question do you want every model to answer?"
         ></textarea>
       </div>
-      <button id="ask-btn" class="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-85 transition-opacity disabled:opacity-40">
-        Ask all
-        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-        </svg>
-      </button>
+      <div id="ask-wrap" class="absolute bottom-4 right-4 group">
+        <button id="ask-btn" class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-85 transition-opacity disabled:opacity-40 disabled:hover:opacity-40 disabled:cursor-not-allowed">
+          Ask all
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+          </svg>
+        </button>
+        <div id="ask-tip" class="pointer-events-none absolute bottom-full right-0 mb-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-lg">
+          Connect with Pollinations to ask
+        </div>
+      </div>
     </div>
 
     <div class="mt-6">
@@ -247,9 +256,21 @@
 
 
     let userApiKey = null;
+
+    function syncAskButton() {
+      const btn = document.getElementById('ask-btn');
+      const wrap = document.getElementById('ask-wrap');
+      if (!btn || !wrap) return;
+      const locked = !userApiKey;
+      btn.disabled = locked;
+      wrap.classList.toggle('needs-connect', locked);
+    }
+
     document.getElementById('polli')?.addEventListener('change', (e) => {
       userApiKey = e.target.apiKey || null;
+      syncAskButton();
     });
+    syncAskButton();
 
     const params = new URLSearchParams(location.search);
     if (params.get('q')) document.getElementById('question').value = params.get('q');
@@ -346,8 +367,21 @@
     loadPrevious();
 
     async function callModel(model, question, apiKey) {
-      const headers = { 'Content-Type': 'application/json' };
-      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      if (!apiKey) {
+        return {
+          model: model.id,
+          name: model.name,
+          icon: model.icon,
+          ok: false,
+          failed: true,
+          text: '',
+          reason: 'not signed in',
+        };
+      }
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      };
       try {
         const res = await fetch(API, {
           method: 'POST',
@@ -360,11 +394,15 @@
         });
         if (!res.ok) {
           const errText = await res.text();
-          if (!apiKey || res.status === 401 || res.status === 402) {
-            const simple = await fetch(`https://text.pollinations.ai/${encodeURIComponent(question)}?model=${encodeURIComponent(model.id)}`);
-            if (simple.ok) return { model: model.id, name: model.name, icon: model.icon, ok: true, text: (await simple.text()).trim() };
-          }
-          return { model: model.id, name: model.name, icon: model.icon, ok: false, text: `Error ${res.status}: ${errText.slice(0, 160)}` };
+          return {
+            model: model.id,
+            name: model.name,
+            icon: model.icon,
+            ok: false,
+            failed: true,
+            text: '',
+            reason: `Error ${res.status}`,
+          };
         }
         const data = await res.json();
         const text = (data?.choices?.[0]?.message?.content || '').trim();
@@ -416,6 +454,8 @@
       const question = document.getElementById('question').value.trim();
       const selected = MODELS.filter(m => m.selected);
       if (!question || !selected.length) return;
+      if (!userApiKey) return;
+
 
       askBtn.disabled = true;
       askBtn.textContent = 'Asking…';
@@ -480,8 +520,8 @@
         meta.textContent += ' · save failed';
       }
 
-      askBtn.disabled = false;
       askBtn.innerHTML = `Ask all <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>`;
+      syncAskButton();
     });
 
     // Animated placeholders: wait 3s, delete, type next examples
